@@ -1,0 +1,22 @@
+name: Daily Slack Message
+
+on:
+  schedule:
+    - cron: "0 9 * * *"  # every day at 9:00 UTC
+  workflow_dispatch:
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Slack message
+        run: |
+          pip install requests
+          python - <<'PY'
+          import datetime
+          import requests
+
+          WEBHOOK_URL = "${{ secrets.SLACK_WEBHOOK_URL }}"
+          msg = f"Good morning team! 🌞 Today is {datetime.datetime.utcnow().strftime('%A, %B %d')}!"
+          requests.post(WEBHOOK_URL, json={"text": msg})
+          PY
