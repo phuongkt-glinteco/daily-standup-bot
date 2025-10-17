@@ -1,0 +1,29 @@
+name: Weekday Stand-up DM
+
+on:
+  schedule:
+    - cron: "0 2 * * 1-5"  # 09:00 UTC+7 on weekdays
+  workflow_dispatch:
+
+jobs:
+  dm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Install dependencies
+        run: pip install flask python-dotenv requests
+      - name: Send stand-up prompt
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_USER_ID: ${{ secrets.SLACK_USER_ID }}
+          CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID }}
+        run: |
+          python - <<'PY'
+          from app import send_daily_standup_prompt
+
+          send_daily_standup_prompt()
+          PY

@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+.env
+
+# Editor settings
+.vscode/
+.idea/
+
+# macOS
+.DS_Store
+
+# Pre-commit cache
+.pre-commit/
