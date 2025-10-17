@@ -13,7 +13,7 @@
 ## Coding Style & Naming Conventions
 - Follow PEP 8: 4-space indentation, descriptive snake_case for functions and variables, PascalCase for classes.
 - Prefer pure functions for message formatting and keep network calls isolated for easier mocking.
-- Run `ruff check .` before committing; configure ignores in `pyproject.toml` if needed.
+- Install pre-commit (`pip install pre-commit`), then run `pre-commit run --all-files` to apply the `fourmat` formatter and enforce `flake8` before pushing.
 
 ## Testing Guidelines
 - Use `pytest` fixtures for timestamps and webhook stubs; store fixtures in `tests/conftest.py` for reuse.
