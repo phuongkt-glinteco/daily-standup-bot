@@ -17,6 +17,83 @@ def _format_multiline_bullets(value):
     return [f" - {line}" for line in lines]
 
 
+def _collect_project_reports(state):
+    """Return ordered project payloads parsed from a Slack view state."""
+
+    relevant_keys = {"project", "did", "plan", "blockers", "hours"}
+    grouped = {}
+
+    for block_id, action_payloads in state.items():
+        base, suffix = block_id.split("_", 1) if "_" in block_id else (block_id, "")
+
+        if base not in relevant_keys:
+            continue
+
+        # Each block contains a single action payload keyed by action_id
+        payload = next(iter(action_payloads.values()), {})
+        value = payload.get("value")
+
+        group = grouped.setdefault(suffix, {})
+        group[base] = value
+
+    def sort_key(item):
+        suffix, _ = item
+        if not suffix:
+            return (0, 0)
+
+        try:
+            return (1, int(suffix))
+        except ValueError:
+            return (1, suffix)
+
+    project_reports = []
+    for _, fields in sorted(grouped.items(), key=sort_key):
+        project_reports.append(  # preserve order for consistent summaries
+            {
+                "project": (fields.get("project") or "").strip(),
+                "did": fields.get("did") or "",
+                "plan": fields.get("plan") or "",
+                "blockers": fields.get("blockers") or "",
+                "hours": (fields.get("hours") or "").strip(),
+            }
+        )
+
+    return project_reports
+
+
+def _build_project_summary_lines(project_reports, today, tomorrow):
+    """Compose markdown summary lines for one or more project reports."""
+
+    lines = []
+    multi_project = len(project_reports) > 1
+
+    for index, report in enumerate(project_reports, start=1):
+        if index > 1:
+            lines.append("")  # blank line between project summaries
+
+        project_name = report.get("project") or "N/A"
+        header = (
+            f"Project {index}: {project_name}"
+            if multi_project
+            else f"Project: {project_name}"
+        )
+        lines.append(header)
+
+        lines.append(f"a. What did you do ({today})")
+        lines.extend(_format_multiline_bullets(report.get("did")))
+
+        lines.append(f"b. What do you plan to do ({tomorrow})")
+        lines.extend(_format_multiline_bullets(report.get("plan")))
+
+        lines.append("c. Blockers:")
+        lines.extend(_format_multiline_bullets(report.get("blockers")))
+
+        hours = report.get("hours") or "N/A"
+        lines.append(f"d. Working hours: {hours}")
+
+    return lines
+
+
 load_dotenv()
 
 app = Flask(__name__)
@@ -186,30 +263,33 @@ def handle_interactivity():
     user = payload["user"]["id"]
     state = payload.get("state", {}).get("values", {})
 
-    try:
-        project = state["project"]["project_input"]["value"]
-        did = state["did"]["did_input"]["value"]
-        plan = state["plan"]["plan_input"]["value"]
-        blockers = state["blockers"]["blockers_input"]["value"]
-        hours = state["hours"]["hours_input"]["value"]
-    except KeyError as e:
-        print("❌ Parsing error:", e)
-        return "", 200  # respond gracefully so Slack doesn't retry
+    project_reports = _collect_project_reports(state)
+    if not project_reports:
+        try:
+            project_reports = [
+                {
+                    "project": (
+                        state["project"]["project_input"]["value"] or ""
+                    ).strip(),
+                    "did": state["did"]["did_input"]["value"] or "",
+                    "plan": state["plan"]["plan_input"]["value"] or "",
+                    "blockers": state["blockers"]["blockers_input"]["value"] or "",
+                    "hours": (state["hours"]["hours_input"]["value"] or "").strip(),
+                }
+            ]
+        except KeyError as e:
+            print("❌ Parsing error:", e)
+            return "", 200  # respond gracefully so Slack doesn't retry
+
+    if not project_reports:
+        print("❌ No project data found in Slack payload.")
+        return "", 200
 
     today = datetime.date.today()
     tomorrow = today + datetime.timedelta(days=1)
 
-    summary_lines = [
-        f"Stand-up summary from <@{user}>",
-        f"Project: {project.strip() if project else 'N/A'}",
-        f"a. What did you do ({today})",
-        *_format_multiline_bullets(did),
-        f"b. What do you plan to do ({tomorrow})",
-        f" - {plan or 'None'}",
-        "c. Blockers:",
-        f" - {blockers or 'None'}",
-        f"d. Working hours: {hours or 'N/A'}",
-    ]
+    summary_lines = [f"Stand-up summary from <@{user}>"]
+    summary_lines.extend(_build_project_summary_lines(project_reports, today, tomorrow))
 
     summary = "```\n" + "\n".join(summary_lines) + "\n```"
 
