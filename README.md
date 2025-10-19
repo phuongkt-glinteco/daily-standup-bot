@@ -54,3 +54,17 @@ If you deploy or test via GitHub Actions, store sensitive values as repository s
 ## Helpful Commands
 - `pytest` – Run the test suite.
 - `pre-commit run --all-files` – Apply formatting and linting.
+
+## Deploying to Render
+Render can read the `render.yaml` blueprint in this repository to provision a web service:
+
+1. Commit your changes and push to GitHub (Render deploys straight from the repo).
+2. In the Render dashboard, click **New → Blueprint** and point it at this repository.
+3. Review the generated service named `daily-standup-bot` and click **Apply**.
+4. After the service is created, open its **Environment** tab and add the required variables:
+   - `SLACK_BOT_TOKEN`
+   - `SLACK_USER_ID`
+   - `CHANNEL_ID`
+5. Trigger a manual deploy to install dependencies (via `pip install -r requirements.txt`) and start the app with `gunicorn app:app`.
+
+Render automatically provides the `PORT` environment variable; the app binds to it when running in production. Update your Slack slash command and interactivity URLs to point at the Render service once the deploy is healthy.
