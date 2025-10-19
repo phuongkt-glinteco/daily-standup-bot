@@ -9,18 +9,26 @@ def _build_state(value_map):
 
     state = {}
     for block_id, data in value_map.items():
-        state[block_id] = {next(iter(data)): next(iter(data.values()))}
+        for action_id, value in data.items():
+            if isinstance(value, dict):
+                payload = value
+            else:
+                payload = {"value": value}
+            state.setdefault(block_id, {})[action_id] = {
+                "type": "plain_text_input",
+                **payload,
+            }
     return state
 
 
 def test_collect_project_reports_single_project():
     state = _build_state(
         {
-            "project": {"project_input": {"value": "Apollo"}},
-            "did": {"did_input": {"value": "Fix bug"}},
-            "plan": {"plan_input": {"value": "Ship"}},
-            "blockers": {"blockers_input": {"value": ""}},
-            "hours": {"hours_input": {"value": "7.5"}},
+            "project": {"project_input": "Apollo"},
+            "did": {"did_input": "Fix bug"},
+            "plan": {"plan_input": "Ship"},
+            "blockers": {"blockers_input": ""},
+            "hours": {"hours_input": "7.5"},
         }
     )
 
@@ -40,16 +48,16 @@ def test_collect_project_reports_single_project():
 def test_collect_project_reports_multiple_projects_order_preserved():
     state = _build_state(
         {
-            "project": {"project_input": {"value": "Apollo"}},
-            "did": {"did_input": {"value": "Fix bug"}},
-            "plan": {"plan_input": {"value": "Ship"}},
-            "blockers": {"blockers_input": {"value": ""}},
-            "hours": {"hours_input": {"value": "7.5"}},
-            "project_1": {"project_input": {"value": "Zeus"}},
-            "did_1": {"did_input": {"value": "Design"}},
-            "plan_1": {"plan_input": {"value": "Review"}},
-            "blockers_1": {"blockers_input": {"value": "Access"}},
-            "hours_1": {"hours_input": {"value": "6"}},
+            "project": {"project_input": "Apollo"},
+            "did": {"did_input": "Fix bug"},
+            "plan": {"plan_input": "Ship"},
+            "blockers": {"blockers_input": ""},
+            "hours": {"hours_input": "7.5"},
+            "project_1": {"project_input": "Zeus"},
+            "did_1": {"did_input": "Design"},
+            "plan_1": {"plan_input": "Review"},
+            "blockers_1": {"blockers_input": "Access"},
+            "hours_1": {"hours_input": "6"},
         }
     )
 
@@ -71,6 +79,25 @@ def test_collect_project_reports_multiple_projects_order_preserved():
             "hours": "6",
         },
     ]
+
+
+def test_collect_project_reports_hyphenated_suffix():
+    state = _build_state(
+        {
+            "project": {"project_input": "Apollo"},
+            "did": {"did_input": "Fix bug"},
+            "project-1": {"project_input": "Zeus"},
+            "did-1": {"did_input": "Design"},
+            "plan-1": {"plan_input": "Review"},
+            "blockers-1": {"blockers_input": "Access"},
+            "hours-1": {"hours_input": "6"},
+        }
+    )
+
+    reports = _collect_project_reports(state)
+
+    assert len(reports) == 2
+    assert reports[1]["project"] == "Zeus"
 
 
 def test_build_project_summary_lines_multiline_fields():
